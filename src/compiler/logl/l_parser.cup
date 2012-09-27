@@ -1,0 +1,343 @@
+package compiler.logl;
+
+import java.util.HashMap;
+
+import javax.swing.JTextArea;
+
+import compiler.CeParseAttr;
+
+import dot.CeDotGraph;
+
+/* Preliminaries to set up */
+parser code {:
+
+	/*************************
+	 * Console
+	 *************************/
+	JTextArea console=new JTextArea();
+	public void setConsole(JTextArea console){
+		this.console=console;
+	}
+	public JTextArea getConsole(){
+		return this.console;
+	}
+	public void print(String text){
+		this.console.append(text);
+	}
+	public void println(String text){
+		this.print(text+"\n");
+	}
+	/*************************
+	 * Errors
+	 *************************/
+    public void report_error(String message, Object info) {
+   
+        /* Create a StringBuffer called 'm' with the string 'Error' in it. */
+        StringBuffer m = new StringBuffer("[Error]");
+   
+        /* Check if the information passed to the method is the same
+           type as the type java_cup.runtime.Symbol. */
+        if (info instanceof java_cup.runtime.Symbol) {
+            /* Declare a java_cup.runtime.Symbol object 's' with the
+               information in the object info that is being typecasted
+               as a java_cup.runtime.Symbol object. */
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+   
+            /* Check if the line number in the input is greater or
+               equal to zero. */
+            if (s.left >= 0) {                
+                /* Add to the end of the StringBuffer error message
+                   the line number of the error in the input. */
+                m.append(" in line "+(s.left+1));   
+                /* Check if the column number in the input is greater
+                   or equal to zero. */
+                if (s.right >= 0)                    
+                    /* Add to the end of the StringBuffer error message
+                       the column number of the error in the input. */
+                    m.append(", column "+(s.right+1)+" value <"+s.value+">");
+            }
+        }
+   
+        /* Add to the end of the StringBuffer error message created in
+           this method the message that was passed into this method. */
+        m.append(" : "+message);
+   
+        /* Print the contents of the StringBuffer 'm', which contains
+           an error message, out on a line. */
+        //System.err.println(m);
+		console.append(m+"\n");
+    }
+   
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+    }
+
+:};
+
+action code{:
+
+	/*************************
+	 * Printing
+	 *************************/
+	void println(String msg){
+		parser.println(msg);
+	}
+	void print(String msg){
+		parser.print(msg);
+	}
+	/*************************
+	 * Errors
+	 *************************/
+	void error(String msg, Object info){
+		parser.report_error(msg,info);
+	}
+	/*************************
+	 * Dot graph
+	 *************************/
+	
+	CeDotGraph	g1	=	new CeDotGraph("g51","graphs/g51.dot");
+	CeDotGraph	g2	=	new CeDotGraph("g52","graphs/g52.dot");
+	
+	String[]	except	=	{"item_id"};
+	
+	String getNextItemId(){
+		return g2.getNextItemId();
+	}
+	String addItem(String label1,String label2){
+		g1.addItem(label1);
+		return g2.addItem(label2);
+	}
+	String addItem(String label){
+		g1.addItem(label);
+		return g2.addItem(label);
+	}
+	String addAssn(String from,String to){
+		g1.addAssn(from,to);
+		return g2.addAssn(from,to);
+	}
+	String addAssn2(String from,String to){
+		return g2.addAssn(from,to);
+	}
+	String addAssn(String from,String to1,String to2){
+		g1.addAssn(from,to1);
+		return g2.addAssn(from,to2);
+	}
+	String addOther(String other){
+		g1.addOther(other);
+		return g2.addOther(other);
+	}
+	void createGraphs() throws java.io.IOException{
+		g1.getGraphImg();
+		g2.getGraphImg();
+		println(String.format("Files created on /%S dir...",g1.getDotfile().getParent()));
+	}
+:}
+
+/* Terminals (tokens returned by the scanner). */
+
+terminal 		String		INT,ID,RW_INCLUDE,VAR,SEMIC,EQUAL,PAR1,PAR2,LLAVE1,LLAVE2,RW_SUB,DOT,DOUBLE,STRING,
+							BOOLEAN,AND,OR,NOT,NEQUAL,DEQUAL,MAYORQ,MENORQ,MAYOR_EQUALQ,MENOR_EQUALQ,SUB,PLUS,DIV,
+							MUL,EXP,CHAR,CALL,COLON,RW_IF,RW_ELSEIF,RW_ELSE,RW_DEFPARAMETER,RW_SETF,RW_DEFUN
+							;
+
+/* Non-terminals */
+
+non terminal	CeParseAttr	s,p,include_list,include, include_filename,stmt_list,stmt,var_def,var,function_def,expr,id,
+							def_list,def,var_list,function_call,function_body,call,sub,div,mayorq,menorq,mayor_equalq,
+							mul,plus,expr_list,int,char,double,boolean,string,par1,menor_equalq,nequal,dequal,
+							par2,llave1,llave2,function_param,colon,semic,dot,exponent,function_call_param,equal,if,
+							if_struct,and,or,not,if_struct1,if_struct2,if_elseif_list,if_struct3,elseif,else,expr1,expr2,
+							expr3,setf,var_global_set,var_global_def,defparameter,defun,var_type
+							;
+/* The grammar */
+
+s				::=	{:println("p.........................");:}
+					p
+					{:println("..........................");:}
+					;
+			
+p				::=	include_list def_list
+					|def_list
+					;
+					
+include_list	::=	include_list include
+					|include
+					;
+					
+include			::=	RW_INCLUDE include_filename
+					;
+include_filename::=	include_filename dot id
+					|id
+					;
+def_list		::=	def_list def
+					|def
+					;
+
+def				::=	var_global_def
+					|function_def
+					;
+var_global_def	::=	defparameter id 
+					|defparameter id var_type
+					;
+var_global_set	::=	setf id expr
+					;
+var_def			::=	var equal expr 
+					|var 
+					;
+var_list		::=	var_list colon var
+					|var
+					;
+var				::=	VAR
+					;
+var_type		::=	int
+					|double
+					|char
+					|string
+					|boolean
+					;
+
+expr_list		::=	expr_list colon expr
+					|expr
+					;
+					
+expr			::=	function_call
+					|var
+					|var_type
+					|par1 expr par2
+					|par1 not expr par2
+					;
+expr2			::=	expr2 expr3
+					|sub				expr3
+					|plus				expr3
+					|div				expr3
+					|mul				expr3
+					|exponent			expr3
+					|or					expr3
+					|and				expr3
+					|dequal				expr3
+					|nequal				expr3
+					|mayorq				expr3
+					|menorq				expr3
+					|mayor_equalq		expr3
+					|menor_equalq		expr3
+					;
+expr3			::=	function_call
+					|id
+					|int
+					|double
+					|char
+					|string
+					|boolean
+					|par1 expr par2
+					|par1 not expr par2
+					;
+
+
+function_def		::=	par1 defun id par1 function_param par2 par1 function_body par2 par2
+						;
+					
+function_body		::=	stmt_list
+						|
+						;
+function_param		::=	var_list
+						|
+						;
+function_call		::=	par1 id function_call_param par2 
+						;
+					
+function_call_param	::=	expr_list
+						|
+						;
+stmt_list		::=	stmt_list stmt
+					|stmt
+					;
+
+stmt			::=	function_call
+					//|if_struct
+					|var_global_set 
+					;
+
+if_struct		::=	par1 if par1 expr par2 llave1 function_body llave2 par2 if_struct1
+					;
+
+if_struct1		::=	if_elseif_list if_struct3 
+					|if_struct3
+					;
+if_elseif_list	::=	if_elseif_list if_struct2
+					|if_struct2
+					;
+if_struct2		::=	par1 elseif par1 expr par2  function_body par2
+					;
+if_struct3		::=	par1 else function_body par2
+					|
+					;
+defun			::=	RW_DEFUN
+					;
+setf			::=	RW_SETF
+					;
+defparameter	::=	RW_DEFPARAMETER
+					;
+if 				::=	RW_IF
+					;
+elseif			::=	RW_ELSEIF
+					;
+else 			::=	RW_ELSE
+					;
+equal			::=	EQUAL
+					;
+nequal			::=	NEQUAL
+					;
+dequal			::=	DEQUAL
+					;
+mayorq			::=	MAYORQ
+					;
+menorq			::=	MENORQ
+					;
+menor_equalq	::=	MENOR_EQUALQ
+					;
+mayor_equalq	::=	MAYOR_EQUALQ
+					;
+colon			::=	COLON
+					;
+semic			::=	SEMIC
+					;
+dot				::=	DOT
+					;
+par1			::=	PAR1
+					;
+par2			::=	PAR2
+					;
+llave1			::=	LLAVE1
+					;
+llave2			::=	LLAVE2
+					;
+call			::=	CALL
+					;
+plus			::=	PLUS
+					;
+sub				::=	SUB
+					;
+div				::=	DIV
+					;
+mul				::=	MUL
+					;
+exponent		::=	EXP
+					;
+and				::=	AND
+					;
+or				::=	OR
+					;
+not				::=	NOT
+					;
+id				::=	ID
+					;
+int				::=	INT
+					;
+double			::=	DOUBLE
+					;
+char			::=	CHAR
+					;
+string			::=	STRING
+					;
+boolean			::=	BOOLEAN
+					;

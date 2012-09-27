@@ -1,0 +1,448 @@
+package compiler.logc;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Stack;
+
+import javax.swing.JTextArea;
+
+import compiler.CeParseAttr;
+import compiler.CeParseUtils;
+import compiler.CeSymTable;
+
+import dot.CeDotGraph;
+
+import javax.swing.text.DefaultStyledDocument;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import java.awt.Color;
+
+/* Preliminaries to set up */
+parser code {:
+	/*************************
+	 * gg
+	 *************************/
+	CeParseUtils utils;
+	
+	public void setUtils(CeParseUtils utils){
+		this.utils=utils;
+	}
+	
+	/*************************
+	 * Styled document
+	 *************************/
+	 DefaultStyledDocument 	doc;
+	 
+	 public void setStyledDoc(DefaultStyledDocument doc){
+		 this.doc=doc;
+	 }
+	 private void addFormat(Color color,boolean bold,boolean italic,boolean underline){
+		SimpleAttributeSet 	sas	= new SimpleAttributeSet();
+		
+		//StyleConstants.setFontSize(sas, 22);
+		StyleConstants.setForeground(sas, color);
+		StyleConstants.setBold(sas, bold);
+		StyleConstants.setItalic(sas, italic);
+		StyleConstants.setUnderline(sas, underline);
+		
+		//doc.setCharacterAttributes(yychar, yylength(), sas, false);
+	}
+	/*************************
+	 * Console
+	 *************************/
+	
+	public void print(String text){
+		this.utils.getConsole().print(text);
+	}
+	public void println(String text){
+		this.utils.getConsole().println(text);
+	}
+	/*************************
+	 * Errors
+	 *************************/
+    public void report_error(String message, Object info) {
+   
+        /* Create a StringBuffer called 'm' with the string 'Error' in it. */
+        StringBuffer m = new StringBuffer("[Error]");
+   
+        /* Check if the information passed to the method is the same
+           type as the type java_cup.runtime.Symbol. */
+        if (info instanceof java_cup.runtime.Symbol) {
+            /* Declare a java_cup.runtime.Symbol object 's' with the
+               information in the object info that is being typecasted
+               as a java_cup.runtime.Symbol object. */
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+   
+            /* Check if the line number in the input is greater or
+               equal to zero. */
+            if (s.left >= 0) {                
+                /* Add to the end of the StringBuffer error message
+                   the line number of the error in the input. */
+                m.append(" in line "+(s.left+1));   
+                /* Check if the column number in the input is greater
+                   or equal to zero. */
+                if (s.right >= 0)                    
+                    /* Add to the end of the StringBuffer error message
+                       the column number of the error in the input. */
+                    m.append(", column "+(s.right+1)+" value <"+s.value+">");
+            }
+        }
+   
+        /* Add to the end of the StringBuffer error message created in
+           this method the message that was passed into this method. */
+        m.append(" : "+message);
+   
+        /* Print the contents of the StringBuffer 'm', which contains
+           an error message, out on a line. */
+        //System.err.println(m);
+		println(m.toString());
+    }
+   
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+    }
+
+:};
+
+action code{:
+
+	/*************************
+	 * Printing
+	 *************************/
+	void println(String msg){
+		parser.println(msg);
+	}
+	void print(String msg){
+		parser.print(msg);
+	}
+	/*************************
+	 * Errors
+	 *************************/
+	void error(String msg, Object info){
+		parser.report_error(msg,info);
+	}
+	/*************************
+	 * Dot graph
+	 *************************/
+	
+	CeDotGraph	g1	=	new CeDotGraph("g51","graphs/g51.dot");
+	CeDotGraph	g2	=	new CeDotGraph("g52","graphs/g52.dot");
+	
+	String[]	except	=	{"item_id"};
+	
+	String getNextItemId(){
+		return g2.getNextItemId();
+	}
+	String addItem(String label1,String label2){
+		g1.addItem(label1);
+		return g2.addItem(label2);
+	}
+	String addItem(String label){
+		g1.addItem(label);
+		return g2.addItem(label);
+	}
+	String addAssn(String from,String to){
+		g1.addAssn(from,to);
+		return g2.addAssn(from,to);
+	}
+	String addAssn2(String from,String to){
+		return g2.addAssn(from,to);
+	}
+	String addAssn(String from,String to1,String to2){
+		g1.addAssn(from,to1);
+		return g2.addAssn(from,to2);
+	}
+	String addOther(String other){
+		g1.addOther(other);
+		return g2.addOther(other);
+	}
+	void createGraphs() throws java.io.IOException{
+		g1.getGraphImg();
+		g2.getGraphImg();
+		println(String.format("Files created on /%S dir...",g1.getDotfile().getParent()));
+	}
+	//dfsdf
+	Stack<String>	context	=	new Stack<>();
+:}
+
+/* Terminals (tokens returned by the scanner). */
+
+terminal 		String		ID,INT,DOUBLE,STRING,CHAR,BOOLEAN,KW_INT,KW_DOUBLE,KW_STRING,KW_CHAR,
+							KW_BOOLEAN,SEMIC,COMA,DOT,EQ,EQEQ,NEQ,MAYORQ,MENORQ,MAYOR_EQQ,MENOR_EQQ,
+							KW_IF,KW_ELSE,PAR1,PAR2,LLAVE1,LLAVE2,AND,OR,NOT,PLUS,SUB,DIV,MUL,EXP,
+							KW_INCLUDE,KW_VOID,KW_FOR,KW_WHILE,KW_STRUCT,KW_BREAK,ARROW,KW_RETURN
+							;
+/* Non-terminals */
+
+non terminal	CeParseAttr	app,input,def_list,def,var_data,var_type,var,var_def,var_list,include_list,
+							include,function_def,function_param,function_params,function_param_list,
+							expr,expr1,expr2,expr3,expr_list,function_call,function_params1,stmts,stmt,
+							stmt_list,if_struct,if_struct1,if_elseif_list,if_elseif,if_else,while_struct,
+							for_struct,var_def_2,struct_def,var_set
+							;
+/* Precedences */
+
+/* The grammar */
+
+app				::=	{:
+						println("c.........................");
+						context.push(parser.utils.getFile().getName());
+					:}
+					input
+					{:
+						context.pop();
+						println("..........................");
+					:}
+					;
+	
+input			::=	include_list def_list
+					|include_list
+					|def_list
+					|
+					;
+include_list	::=	include include_list
+					|include
+					;
+include			::=	KW_INCLUDE
+					;
+def_list		::=	def def_list
+					|def 
+					|error
+					;
+def				::=	var_def:x
+					{:
+						try {
+							parser.utils.getSymTable("symtable").addGlobalVar(x.getList("lista").get(0).getString("name"), x.getString("type"),context.peek(), 0);
+						} catch (Exception exc) {
+							error(exc.getMessage(),x.get("info"));
+						}
+						//println(x.toString());
+					:}
+					|function_def
+					|struct_def
+					;
+var_def			::=	var_type:t	var_list:x SEMIC
+					{:
+						x.set("type",t.getString("type"));
+						RESULT	=	x;
+					:}
+					|var_def_2:x SEMIC
+					{:
+						RESULT=x;
+					:}
+					;
+var_def_2		::=	var_type:t var_list:x EQ expr 
+					{:
+						x.set("type",t.getString("type"));
+						RESULT	=	x;
+					:}
+					;
+var_set			::=	var_list	EQ	expr	SEMIC
+					;
+var_list		::=	var:x ARROW var_list:l
+					{:
+						l.getList("list").add(x);
+						l.set("is_struct",true);
+						RESULT	=	l;
+					:}
+					|var:x COMA var_list:l
+					{:
+						l.getList("list").add(x);
+						l.set("is_struct",false);
+						RESULT	=	l;
+					:}
+					|var :x
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						
+						ArrayList<CeParseAttr>	list	=	new ArrayList<>();
+						list.add(x);
+						
+						attr.set("list",list);
+						
+						RESULT=	attr;
+					:}
+					;
+var				::=	ID:x
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("name",x);
+						attr.set("info",CUP$C_Parser$stack.peek());
+						RESULT=	attr;
+					:}
+					;
+var_type		::=	KW_INT
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_INT);
+						RESULT=	attr;
+					:}
+					|KW_DOUBLE
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_DOUBLE);
+						RESULT=	attr;
+					:}
+					|KW_STRING
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_INT);
+						RESULT=	attr;
+					:}
+					|KW_CHAR
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_CHAR);
+						RESULT=	attr;
+					:}
+					|KW_BOOLEAN
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_BOOLEAN);
+						RESULT=	attr;
+					:}
+					|KW_VOID
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",CeSymTable.TYPE_VOID);
+						RESULT=	attr;
+					:}
+					|ID:x
+					{:
+						CeParseAttr	attr= new CeParseAttr();
+						attr.set("type",x);
+						RESULT=	attr;
+					:}
+					;
+var_data		::=	INT
+					|DOUBLE
+					|STRING
+					|CHAR
+					|BOOLEAN
+					;
+
+function_def		::=	var_type:t var:x {:context.push(x.getString("name"));:} PAR1 function_params:l PAR2 
+						{:
+							try {
+								CeSymTable.Item item=parser.utils.getSymTable("symtable").addFunction(x.getString("name"), t.getString("type"),context.peek(), 0,((Set<CeSymTable.Item>)l.get("item_list")));
+								
+							} catch (Exception exc) {
+								error(exc.getMessage(),x.get("info"));
+							}
+						:} 
+						LLAVE1 stmts  LLAVE2
+						{:
+							context.pop();
+						:}
+						;
+function_params		::=	function_param_list:x
+						{:
+							RESULT=x;
+						:}
+						|
+						{:
+							CeParseAttr attr=new CeParseAttr();
+							attr.set("item_list",new HashSet<CeSymTable.Item>());
+							
+							RESULT=attr;
+						:}
+						;
+function_param_list	::=	function_param:x COMA function_param_list:l
+						{:
+							((Set<CeSymTable.Item>)l.get("item_list")).add((CeSymTable.Item)x.get("item"));
+							RESULT=l;
+						:}
+						|function_param:x
+						{:
+							Set<CeSymTable.Item>	list	=	new HashSet<>();
+							if(x.get("item")!=null)
+								list.add((CeSymTable.Item)x.get("item"));
+							x.set("item_list",list);
+							RESULT=x;
+						:}
+						;
+function_param		::=	var_type:t var:x
+						{:
+							x.set("type",t.get("type"));
+							try {
+								CeSymTable.Item item=parser.utils.getSymTable("symtable").addParameter(x.getString("name"), x.getString("type"),context.peek(), 0);
+								x.set("item",item);
+							} catch (Exception exc) {
+								error(exc.getMessage(),x.get("info"));
+							}
+							RESULT =x;
+						:}
+						;
+function_call		::=	var PAR1 function_params1 PAR2 
+						;
+function_params1	::=	expr_list
+						|
+						;
+stmts				::=	stmt_list
+						|
+						;
+stmt_list			::=	stmt stmt_list
+						|stmt
+						;
+stmt				::=	function_call SEMIC
+						|var_def
+						|var_set
+						|if_struct
+						|while_struct
+						|for_struct
+						|KW_RETURN expr SEMIC
+						|KW_BREAK SEMIC
+						;
+if_struct			::=	KW_IF PAR1 expr PAR2 LLAVE1 stmts LLAVE2 if_struct1
+						;
+if_struct1			::=	if_elseif_list if_else
+						|if_elseif_list
+						|if_else
+						|
+						;
+if_elseif_list		::=	if_elseif_list if_elseif  
+						|if_elseif
+						;
+if_elseif			::=	KW_ELSE KW_IF PAR1 expr PAR2 LLAVE1 stmts LLAVE2
+						;
+if_else				::=	KW_ELSE LLAVE1 stmts LLAVE2
+						;
+while_struct		::=	KW_WHILE PAR1 expr PAR2 LLAVE1 stmts LLAVE2
+						;
+for_struct			::=	KW_FOR PAR1 var_def_2 SEMIC expr SEMIC var PLUS PLUS PAR2 LLAVE1 stmts LLAVE2
+						;
+
+struct_def			::=	KW_STRUCT var LLAVE1 stmts LLAVE2
+						;
+
+expr				::=	expr1	PLUS	expr
+						|expr1	SUB		expr
+						|expr1	EQEQ	expr
+						|expr1	NEQ		expr
+						|expr1	MAYORQ	expr
+						|expr1	MENORQ	expr
+						|expr1	MAYOR_EQQ	expr
+						|expr1	MENOR_EQQ	expr
+						|expr1
+						;
+expr1				::=	expr2	MUL		expr1
+						|expr2	DIV		expr1
+						|expr2	OR		expr1
+						|expr2
+						;
+expr2				::=	expr3	EXP		expr2
+						|expr3	AND		expr2
+						|expr3	ARROW	expr2
+						|expr3
+						;
+expr3				::=	PAR1 expr PAR2
+						|var
+						|var_data
+						|function_call
+						//|NOT expr %prec NOT 
+						;
+expr_list			::=	expr COMA expr_list
+						|expr
+						;
