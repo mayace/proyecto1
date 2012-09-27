@@ -183,14 +183,14 @@ non terminal	CeParseAttr	app,input,def_list,def,var_data,var_type,var,var_def,va
 							for_struct,var_def_2,struct_def,var_set
 							;
 /* Precedences */
-
+precedence left NOT;
 /* The grammar */
 
 app				::=	{:
 						println("c.........................");
 						context.push(parser.utils.getFile().getName());
 					:}
-					input
+					expr
 					{:
 						context.pop();
 						println("..........................");
@@ -417,31 +417,8 @@ for_struct			::=	KW_FOR PAR1 var_def_2 SEMIC expr SEMIC var PLUS PLUS PAR2 LLAVE
 struct_def			::=	KW_STRUCT var LLAVE1 stmts LLAVE2
 						;
 
-expr				::=	expr1	PLUS	expr
-						|expr1	SUB		expr
-						|expr1	EQEQ	expr
-						|expr1	NEQ		expr
-						|expr1	MAYORQ	expr
-						|expr1	MENORQ	expr
-						|expr1	MAYOR_EQQ	expr
-						|expr1	MENOR_EQQ	expr
-						|expr1
-						;
-expr1				::=	expr2	MUL		expr1
-						|expr2	DIV		expr1
-						|expr2	OR		expr1
-						|expr2
-						;
-expr2				::=	expr3	EXP		expr2
-						|expr3	AND		expr2
-						|expr3	ARROW	expr2
-						|expr3
-						;
-expr3				::=	PAR1 expr PAR2
-						|var
-						|var_data
-						|function_call
-						//|NOT expr %prec NOT 
+expr				::=	expr OR expr
+						|expr
 						;
 expr_list			::=	expr COMA expr_list
 						|expr
